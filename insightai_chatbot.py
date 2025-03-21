@@ -32,14 +32,14 @@ def initialize_pinecone_index():
 
 @st.cache_resource
 def help_center_scrape():
-    urls_to_scrape = 10
+    urls_to_scrape = -1
     raw_data = []
     sitemap_url = "https://help.adjust.com/sitemap.xml"
     response = requests.get(sitemap_url)
     soup = BeautifulSoup(response.content, "xml")
     urls_and_lastmod = [(loc.text, loc.find_next("lastmod").text if loc.find_next("lastmod") else None) for loc in soup.find_all("loc")[:urls_to_scrape]]
 
-    st.write("Data scraped:")
+    # st.write("Data scraped:")
     for url, lastmod in urls_and_lastmod:
         page_response = requests.get(url)
         page_soup = BeautifulSoup(page_response.content, "html.parser")
@@ -48,7 +48,7 @@ def help_center_scrape():
         content = "\n".join(paragraph.text for paragraph in paragraphs[1:-1])
         unique_id = str(url) + "_" + (lastmod if lastmod else "no_lastmod")
 
-        st.write(f"[{title}]({url})") 
+        # st.write(f"[{title}]({url})") 
 
         raw_data.append({
             "url": url,
@@ -58,6 +58,7 @@ def help_center_scrape():
         })
 
     data = pd.DataFrame(raw_data)
+    st.write("Scraping complete.") 
     return data
 
 def create_chunk_df(data, model):
@@ -78,6 +79,7 @@ def create_chunk_df(data, model):
             })
     chunked_df = pd.DataFrame(chunked_rows)
     chunked_df["embedding"] = chunked_df.apply(create_embeddings, axis = 1, args=(model,))
+    st.write("Chunking and embedding complete.") 
     return chunked_df
 
 def create_embeddings(row, model):
@@ -96,6 +98,7 @@ def upsert_embeddings(data, index):
             to_upsert.append((row["unique_id"], row["embedding"], {"title": row["title"], "url": row["url"], "text": row["content"]}))
     for i in range(0, len(to_upsert), batch_size):
         index.upsert(vectors=to_upsert[i : i + batch_size])
+    st.write("Upserting complete.") 
 
 
 def chat(model, index, client):
@@ -192,3 +195,6 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+
