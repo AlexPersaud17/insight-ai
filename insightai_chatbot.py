@@ -61,7 +61,8 @@ def help_center_scrape():
     st.write("Scraping complete.") 
     return data
 
-def create_chunk_df(data, model):
+@st.cache_resource
+def create_chunk_df(data, _model):
 
     def chunk_text(tokens):
         chunk_size=256
@@ -78,8 +79,8 @@ def create_chunk_df(data, model):
                 "content": chunk
             })
     chunked_df = pd.DataFrame(chunked_rows)
-    chunked_df["embedding"] = chunked_df.apply(create_embeddings, axis = 1, args=(model,))
-    st.write("Chunking and embedding complete.") 
+    chunked_df["embedding"] = chunked_df.apply(create_embeddings, axis = 1, args=(_model,))
+    st.write("Chunking and embedding complete.")
     return chunked_df
 
 def create_embeddings(row, model):
@@ -87,18 +88,22 @@ def create_embeddings(row, model):
     return model.encode(combined_text, show_progress_bar = False)
 
 def upsert_embeddings(data, index):
-    existing_vectors = index.fetch(ids=[str(i) for i in range(len(data))])
-    existing_ids = {vector["id"] for vector in existing_vectors.vectors}
+    print("\n\n\nHERE1n\n\n")
+    # existing_vectors = index.fetch(ids=[str(i) for i in range(len(data))])
+    # existing_ids = {vector["id"] for vector in existing_vectors.vectors}
 
-    batch_size = 100
+    batch_size = 1000
     to_upsert = []
 
     for i, row in data.iterrows():
-        if row["unique_id"] not in existing_ids:
-            to_upsert.append((row["unique_id"], row["embedding"], {"title": row["title"], "url": row["url"], "text": row["content"]}))
+        print("\n\n\nHERE2\n\n\n")
+        # if row["unique_id"] not in existing_ids:
+        to_upsert.append((row["unique_id"], row["embedding"], {"title": row["title"], "url": row["url"], "text": row["content"]}))
     for i in range(0, len(to_upsert), batch_size):
+        print("\n\n\nHERE3\n\n\n")
+        print(to_upsert[i : i + batch_size])
         index.upsert(vectors=to_upsert[i : i + batch_size])
-    st.write("Upserting complete.") 
+    st.write("Upserting complete.")
 
 
 def chat(model, index, client):
