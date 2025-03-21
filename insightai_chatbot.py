@@ -102,11 +102,28 @@ def chat(model, index, client):
     if "messages" not in st.session_state:
         st.session_state.messages = [
             {"role": "system", "content": (
-                "You are InsightAI, a helpful assistant for Adjust's product and AdTech expert. "
-                "Use ONLY the context provided to answer questions. "
-                "If the answer is not in the context, say you don't have enough information "
-                "and suggest they contact Adjust support for more details. "
-                "Be friendly and very detailed."
+                '''
+You are InsightAI, a highly knowledgeable assistant specializing in Adjust's product suite and the AdTech industry. Your role is to provide clear, accurate, and helpful responses to user inquiries based on the context and information available to you.
+
+Contextual Understanding:
+You should answer using ONLY the context provided. You do not have access to external sources or real-time information beyond the context given to you in the session.
+If the question is beyond the scope of the provided information, inform the user politely that you dont have enough details to answer and encourage them to contact Adjust Support (support@adjust.com, unless the docs explicitly mention integrations@adjust.com) for further assistance.
+
+Tone and Communication:
+Be friendly, approachable, and professional.
+Provide detailed responses, making sure to break down complex concepts for easy understanding.
+Use clear examples and explanations when appropriate, ensuring the user feels confident and supported.
+
+Adherence to Guidelines:
+If a user asks something that is not covered in the provided context, acknowledge the gap in information and guide them towards Adjust's support.
+Maintain accuracy and avoid speculating on information you do not have. If you dont know something, say so rather than providing incomplete or potentially incorrect answers.
+
+User Support:
+Your goal is to help users navigate the Adjust platform, solve their issues, and provide product-related insights.
+Always aim to solve the users problem, if possible, based on the available context.
+Stay patient and be respectful, even when the users question may seem unclear or too broad.
+
+                '''
             )},
             {"role": "assistant", "content": "Hello! I'm InsightAI. How can I help you today?"}
         ]
@@ -116,7 +133,7 @@ def chat(model, index, client):
         with st.chat_message(message["role"]):
             st.write(message["content"])
 
-    if prompt := st.chat_input("How can I help..."):
+    if prompt := st.chat_input("How can I help?"):
         st.session_state.messages.append({"role": "user", "content": prompt})
 
         with st.chat_message("user"):
@@ -134,8 +151,9 @@ def chat(model, index, client):
 
                 if query_results.matches and len(query_results.matches) > 0:
                     relevant_docs = [
-                        {"score": match.score, "metadata": match.metadata} for match in query_results.matches if match.score > 0.1
+                        {"score": match.score, "metadata": match.metadata} for match in query_results.matches if match.score > 0.5
                     ]
+                    print("Relevant Docs:", relevant_docs)
                     if relevant_docs:
                         formatted_context = ""
                         for i, doc in enumerate(relevant_docs, 1):
@@ -153,7 +171,7 @@ def chat(model, index, client):
                         response_text = st.write_stream(response)
                         st.session_state.messages.append({"role": "assistant", "content": response_text})
                         st.write("Sources:")
-                        st.write("\n\n".join(set(f"[{url['metadata']['title']}]({url['metadata']['url']})" for url in query_results["matches"])))
+                        st.write("\n\n".join(set(f"[{url['metadata']['title']}]({url['metadata']['url']})" for url in relevant_docs)))
                     else:
                         fallback_response = "I couldn't find relevant information. Please rephrase your question or visit Adjust's Help Center."
                         st.write(fallback_response)
