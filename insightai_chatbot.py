@@ -38,9 +38,11 @@ def help_center_scrape():
     response = requests.get(sitemap_url)
     soup = BeautifulSoup(response.content, "xml")
     urls_and_lastmod = [(loc.text, loc.find_next("lastmod").text if loc.find_next("lastmod") else None) for loc in soup.find_all("loc")[:urls_to_scrape]]
-
     # st.write("Data scraped:")
+    count=0
+    progress_bar = st.progress(count, "Scraping documentation...")
     for url, lastmod in urls_and_lastmod:
+        count += 1
         page_response = requests.get(url)
         page_soup = BeautifulSoup(page_response.content, "html.parser")
         title = page_soup.title.string if page_soup.title else "No title found"
@@ -48,7 +50,7 @@ def help_center_scrape():
         content = "\n".join(paragraph.text for paragraph in paragraphs[1:-1])
         unique_id = str(url) + "_" + (lastmod if lastmod else "no_lastmod")
 
-        # st.write(f"[{title}]({url})") 
+        st.write(f"[{title}]({url})")
 
         raw_data.append({
             "url": url,
@@ -56,21 +58,18 @@ def help_center_scrape():
             "content": content,
             "unique_id": unique_id
         })
+        progress_bar.progress(count/len(urls_and_lastmod))
 
     data = pd.DataFrame(raw_data)
-    st.write("Scraping complete.") 
+    st.write("Scraping complete.")
     return data
 
 @st.cache_resource
 def create_chunk_df(data, _model):
-
-    def chunk_text(tokens):
-        chunk_size=256
-        return [tokens[i:i + chunk_size] for i in range(0, len(tokens), chunk_size)]
-
+    chunk_size=256
     chunked_rows = []
     for _, row in data.iterrows():
-        chunks = chunk_text(row["content"])
+        chunks = [row["content"][i:i + chunk_size] for i in range(0, len(row["content"]), chunk_size)]
         for i, chunk in enumerate(chunks):
             chunked_rows.append({
                 "unique_id": f"{row['unique_id']}-chunk-{i}",
@@ -88,25 +87,51 @@ def create_embeddings(row, model):
     return model.encode(combined_text, show_progress_bar = False)
 
 def upsert_embeddings(data, index):
-    print("\n\n\nHERE1n\n\n")
-    # existing_vectors = index.fetch(ids=[str(i) for i in range(len(data))])
-    # existing_ids = {vector["id"] for vector in existing_vectors.vectors}
-
-    batch_size = 1000
+    batch_size = 100
     to_upsert = []
 
     for i, row in data.iterrows():
-        print("\n\n\nHERE2\n\n\n")
-        # if row["unique_id"] not in existing_ids:
-        to_upsert.append((row["unique_id"], row["embedding"], {"title": row["title"], "url": row["url"], "text": row["content"]}))
+        vector_exists = index.fetch(row["unique_id"]).get("vectors")
+        if not vector_exists:
+            to_upsert.append((row["unique_id"], row["embedding"], {"title": row["title"], "url": row["url"], "text": row["content"]}))
     for i in range(0, len(to_upsert), batch_size):
-        print("\n\n\nHERE3\n\n\n")
-        print(to_upsert[i : i + batch_size])
         index.upsert(vectors=to_upsert[i : i + batch_size])
     st.write("Upserting complete.")
 
 
-def chat(model, index, client):
+def query_index(model, prompt, index):
+    query_embedding = model.encode(prompt, show_progress_bar=False).tolist()
+    query_results = index.query(
+        vector=query_embedding,
+        top_k=5,
+        include_metadata=True
+    )
+    return query_results if query_results.matches and len(query_results.matches) > 0 else None
+
+def match_scoring(query_results):
+    score = 0.5
+    return [{"score": match.score, "metadata": match.metadata} for match in query_results.matches if match.score > score]
+
+def format_context(relevant_docs):
+    formatted_context = ""
+    for i, doc in enumerate(relevant_docs, 1):
+        formatted_context += f"[Document {i}]\nTitle: {doc['metadata'].get('title', 'No title')}\n"
+        formatted_context += f"Content: {doc['metadata'].get('text', 'No content')}\n\n"
+    return formatted_context
+
+def llm_response(client):
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=st.session_state.messages,
+        temperature=0.0,
+        max_tokens=500,
+        stream = True
+    )
+    response_text = st.write_stream(response) 
+    return response_text
+
+def chat(model, index):
+    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
     if "messages" not in st.session_state:
         st.session_state.messages = [
             {"role": "system", "content": (
@@ -149,34 +174,17 @@ Stay patient and be respectful, even when the users question may seem unclear or
 
         with st.chat_message("assistant"):
             with st.spinner("Thinking..."):
-                query_embedding = model.encode(prompt, show_progress_bar=False).tolist()
-                query_results = index.query(
-                    vector=query_embedding,
-                    top_k=5,
-                    include_metadata=True
-                )
-                print("Query Results:", query_results)
-
-                if query_results.matches and len(query_results.matches) > 0:
-                    relevant_docs = [
-                        {"score": match.score, "metadata": match.metadata} for match in query_results.matches if match.score > 0.5
-                    ]
-                    print("Relevant Docs:", relevant_docs)
+                query_results = query_index(model, prompt, index)
+                if query_results:
+                    relevant_docs = match_scoring(query_results)
                     if relevant_docs:
-                        formatted_context = ""
-                        for i, doc in enumerate(relevant_docs, 1):
-                            formatted_context += f"[Document {i}]\nTitle: {doc['metadata'].get('title', 'No title')}\n"
-                            formatted_context += f"Content: {doc['metadata'].get('text', 'No content')}\n\n"
+                        formatted_context = format_context(relevant_docs)
 
-                        st.session_state.messages.append({"role": "user", "content": f"Context:\n{formatted_context}\n\nQuestion: {prompt}"})
-                        response = client.chat.completions.create(
-                            model="gpt-4o-mini",
-                            messages=st.session_state.messages,
-                            temperature=0.0,
-                            max_tokens=500,
-                            stream = True
-                        )
-                        response_text = st.write_stream(response)
+                        st.session_state.messages.append({"role": "user", 
+                                                          "content": f"Context:\n{formatted_context}\n\nQuestion: {prompt}"})
+
+                        response_text = llm_response(client)
+
                         st.session_state.messages.append({"role": "assistant", "content": response_text})
                         st.write("Sources:")
                         st.write("\n\n".join(set(f"[{url['metadata']['title']}]({url['metadata']['url']})" for url in relevant_docs)))
@@ -191,12 +199,11 @@ Stay patient and be respectful, even when the users question may seem unclear or
 
 
 def main():
-    client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
     model, index = initialize_pinecone_index()
     data = help_center_scrape()
     data = create_chunk_df(data, model)
     upsert_embeddings(data, index)
-    chat(model, index, client)
+    chat(model, index)
 
 if __name__ == "__main__":
     main()
