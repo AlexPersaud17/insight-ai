@@ -1,18 +1,14 @@
 from pinecone import Pinecone, ServerlessSpec
 from sentence_transformers import SentenceTransformer
-import requests
-from bs4 import BeautifulSoup
 import pandas as pd
 import os
+from data_uploader import url_scraper, help_center_scrape
 from dotenv import load_dotenv
 
 load_dotenv()
 
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-
-
 def initialize_pinecone_index():
-    pc = Pinecone(api_key=PINECONE_API_KEY)
+    pc = Pinecone()
     index_name="insight-ai-support-bot"
     model = SentenceTransformer("all-MiniLM-L6-v2")
     dimension=model.get_sentence_embedding_dimension()
@@ -28,32 +24,6 @@ def initialize_pinecone_index():
 
     index = pc.Index(index_name)
     return model, index
-
-def help_center_scrape():
-    urls_to_scrape = -1
-    raw_data = []
-    sitemap_url = "https://help.adjust.com/sitemap.xml"
-    response = requests.get(sitemap_url)
-    soup = BeautifulSoup(response.content, "xml")
-    urls_and_lastmod = [(loc.text, loc.find_next("lastmod").text if loc.find_next("lastmod") else None) for loc in soup.find_all("loc")[:urls_to_scrape]]
-
-    for url, lastmod in urls_and_lastmod:
-        page_response = requests.get(url)
-        page_soup = BeautifulSoup(page_response.content, "html.parser")
-        title = page_soup.title.string if page_soup.title else "No title found"
-        content = page_soup.get_text()
-        unique_id = str(url) + "_" + (lastmod if lastmod else "no_lastmod")
-
-
-        raw_data.append({
-            "url": url,
-            "title": title,
-            "content": content,
-            "unique_id": unique_id
-        })
-
-    data = pd.DataFrame(raw_data)
-    return data
 
 def create_chunk_df(data, _model):
     chunk_size=256
@@ -96,4 +66,4 @@ def build_index():
 
     # return model, index
 
-    return SentenceTransformer("all-MiniLM-L6-v2"), Pinecone(api_key=PINECONE_API_KEY).Index("insight-ai-support-bot")
+    return SentenceTransformer("all-MiniLM-L6-v2"), Pinecone().Index("insight-ai-support-bot")
