@@ -19,11 +19,11 @@ def get_file_data():
         return url_scraper(url_input)
 
 def pdf_scraper():
-    raw_data = []
     title = st.text_input("Title of the document:")
     uploaded_pdf = st.file_uploader("Choose a PDF file", type="pdf")
 
     if uploaded_pdf:
+        raw_data = []
         doc = PdfReader(uploaded_pdf)
         content = ""
         for page in doc.pages:
@@ -38,19 +38,21 @@ def pdf_scraper():
     return data
 
 def url_scraper(url, lastmod=datetime.today().strftime('%Y-%m-%d'), raw_data = []):
-    page_response = requests.get(url)
-    page_soup = BeautifulSoup(page_response.content, "html.parser")
-    title = page_soup.title.string if page_soup.title else "No title found"
-    content = page_soup.get_text()
-    unique_id = str(url) + "_" + (lastmod if lastmod else "no_lastmod")
-    raw_data.append({
-            "url": url,
-            "title": title,
-            "content": content,
-            "unique_id": unique_id
-        })
+    if url:
+        page_response = requests.get(url)
+        page_soup = BeautifulSoup(page_response.content, "html.parser")
+        title = page_soup.title.string if page_soup.title else "No title found"
+        content = page_soup.get_text()
+        unique_id = str(url) + "_" + (lastmod if lastmod else "no_lastmod")
+        raw_data.append({
+                "url": url,
+                "title": title,
+                "content": content,
+                "unique_id": unique_id
+            })
 
     data = pd.DataFrame(raw_data)
+    return data
 
 def help_center_scrape():
     urls_to_scrape = -1
