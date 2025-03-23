@@ -2,3 +2,5 @@
 .streamlit
 .streamlit/
 .vscode/
+.env
+__pycache__/
