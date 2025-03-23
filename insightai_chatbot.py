@@ -38,7 +38,7 @@ def write_sources(relevant_docs):
     st.write("Sources:")
     st.write("\n\n".join(set(f"[{url['metadata']['title']}]({url['metadata']['url']})" for url in relevant_docs)))
 
-def chat(model, index):
+def run_chat(model, index, chat_container):
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
     if "messages" not in st.session_state:
         st.session_state.messages = [
@@ -51,16 +51,16 @@ def chat(model, index):
 
     for message in st.session_state.messages[1:]:
         if message.get("display", True):
-            with st.chat_message(message["role"]):
+            with chat_container.chat_message(message["role"]):
                 st.write(message["content"])
 
     if prompt := st.chat_input("How can I help?"):
         st.session_state.messages.append({"role": "user", "content": prompt})
 
-        with st.chat_message("user"):
+        with chat_container.chat_message("user"):
             st.write(prompt)
 
-        with st.chat_message("assistant"):
+        with chat_container.chat_message("assistant"):
             with st.spinner("Thinking..."):
                 query_results = query_index(model, prompt, index)
                 if query_results:
@@ -84,6 +84,3 @@ def chat(model, index):
                     st.write(fallback_response)
                     st.session_state.messages.append({"role": "assistant", "content": fallback_response})
 
-
-def run_chat(model, index):
-    chat(model, index)

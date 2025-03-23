@@ -11,7 +11,8 @@ def main():
     chat_tab, upload_tab = st.tabs(["Chat", "Upload Data"])
     model, index = build_index()
     with chat_tab:
-        run_chat(model, index)
+        chat_container = st.container(height=600, border=False)
+        run_chat(model, index, chat_container)
     with upload_tab:
         upload_new_data(model, index)
 
