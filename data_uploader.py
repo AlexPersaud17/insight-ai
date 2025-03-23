@@ -18,11 +18,11 @@ def get_file_data():
         return url_scraper(url_input)
 
 def pdf_scraper():
+    raw_data = []
     title = st.text_input("Title of the document:")
     uploaded_pdf = st.file_uploader("Choose a PDF file", type="pdf")
 
     if uploaded_pdf:
-        raw_data = []
         doc = PdfReader(uploaded_pdf)
         content = ""
         for page in doc.pages:
