@@ -8,7 +8,6 @@ from bs4 import BeautifulSoup
 import pandas as pd
 
 
-
 def get_file_data():
     option = st.radio("Select import method:", ["Upload PDF", "Scrape URL"])
     if option == "Upload PDF":

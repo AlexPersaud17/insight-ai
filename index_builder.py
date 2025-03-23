@@ -1,8 +1,6 @@
 from pinecone import Pinecone, ServerlessSpec
 from sentence_transformers import SentenceTransformer
 import pandas as pd
-import os
-from data_uploader import url_scraper, help_center_scrape
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -64,6 +62,6 @@ def build_index():
     # data = create_chunk_df(raw_data, model)
     # upsert_embeddings(data, index)
 
-    # return model, index
-
-    return SentenceTransformer("all-MiniLM-L6-v2"), Pinecone().Index("insight-ai-support-bot")
+    model, index = SentenceTransformer("all-MiniLM-L6-v2"), Pinecone().Index("insight-ai-support-bot")
+    
+    return model, index
