@@ -42,7 +42,6 @@ defusedxml==0.7.1
 Deprecated==1.2.18
 dill==0.3.8
 distro==1.9.0
-docx2txt==0.8
 durationpy==0.9
 etelemetry==0.3.1
 exceptiongroup==1.2.2
