@@ -2,6 +2,7 @@ from openai import OpenAI
 import streamlit as st
 from system_message import SYSTEM_MESSAGE
 
+
 def query_index(model, prompt, index):
     query_embedding = model.encode(prompt, show_progress_bar=False).tolist()
     query_results = index.query(
@@ -11,9 +12,11 @@ def query_index(model, prompt, index):
     )
     return query_results if query_results.matches and len(query_results.matches) > 0 else None
 
+
 def match_scoring(query_results):
     score = 0.5
     return [{"score": match.score, "metadata": match.metadata} for match in query_results.matches if match.score > score]
+
 
 def format_context(relevant_docs):
     formatted_context = ""
@@ -23,20 +26,24 @@ def format_context(relevant_docs):
     # print(formatted_context)
     return formatted_context
 
+
 def llm_response(client):
     response = client.chat.completions.create(
         model="gpt-4o-mini",
         messages=st.session_state.messages,
         temperature=0.0,
         max_tokens=5000,
-        stream = True
+        stream=True
     )
     response_text = st.write_stream(response)
     return response_text
 
+
 def write_sources(relevant_docs):
     st.write("Sources:")
-    st.write("\n\n".join(set(f"[{url['metadata']['title']}]({url['metadata']['url']})" for url in relevant_docs)))
+    st.write("\n\n".join(set(
+        f"[{url['metadata']['title']}]({url['metadata']['url']})" for url in relevant_docs)))
+
 
 def run_chat(model, index, chat_container):
     client = OpenAI(api_key=st.secrets["OPENAI_API_KEY"])
@@ -48,13 +55,12 @@ def run_chat(model, index, chat_container):
              "content": "Hello! I'm InsightAI. How can I help you today?"}
         ]
 
-
     for message in st.session_state.messages[1:]:
         if message.get("display", True):
             with chat_container.chat_message(message["role"]):
                 st.write(message["content"])
 
-    if prompt := st.chat_input("How can I help?"):
+    if prompt := st.chat_input("How can I help?", max_chars=500):
         st.session_state.messages.append({"role": "user", "content": prompt})
 
         with chat_container.chat_message("user"):
@@ -70,7 +76,7 @@ def run_chat(model, index, chat_container):
 
                         st.session_state.messages.append({"role": "user",
                                                           "content": f"Context:\n{formatted_context}\n\nQuestion: {prompt}",
-                                                          "display": False })
+                                                          "display": False})
 
                         st.session_state.messages.append({"role": "assistant",
                                                           "content": llm_response(client)})
@@ -78,9 +84,10 @@ def run_chat(model, index, chat_container):
                     else:
                         fallback_response = "I couldn't find relevant information. Please rephrase your question or visit Adjust's Help Center."
                         st.write(fallback_response)
-                        st.session_state.messages.append({"role": "assistant", "content": fallback_response})
+                        st.session_state.messages.append(
+                            {"role": "assistant", "content": fallback_response})
                 else:
                     fallback_response = "I don't have information on that topic. Try asking about something else related to Adjust."
                     st.write(fallback_response)
-                    st.session_state.messages.append({"role": "assistant", "content": fallback_response})
-
+                    st.session_state.messages.append(
+                        {"role": "assistant", "content": fallback_response})

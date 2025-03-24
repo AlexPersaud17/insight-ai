@@ -3,9 +3,11 @@ from insightai_chatbot import run_chat
 from data_uploader import upload_new_data
 import streamlit as st
 
+
 def page_init():
     st.set_page_config(page_title="InsightAI")
     st.title("InsightAI")
+
 
 def main():
     chat_tab, upload_tab = st.tabs(["Chat", "Upload Data"])
