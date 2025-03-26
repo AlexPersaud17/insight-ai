@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 import pandas as pd
 import gspread
 from oauth2client.service_account import ServiceAccountCredentials
+import json
 
 
 def get_file_data():
@@ -90,10 +91,11 @@ def upload_new_data(model, index):
 
 
 def google_sheet_client_init():
+    service_account_info = st.secrets["gcp_service_account"]
     scope = ["https://spreadsheets.google.com/feeds",
              "https://www.googleapis.com/auth/drive"]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(
-        "insight-ai-454822-d6a2bff7346b.json", scope)
+    creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        service_account_info, scope)
     client = gspread.authorize(creds)
     sheet = client.open("insight-ai-upload-history").sheet1
     return sheet
