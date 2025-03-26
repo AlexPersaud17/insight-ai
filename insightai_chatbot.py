@@ -23,7 +23,6 @@ def format_context(relevant_docs):
     for i, doc in enumerate(relevant_docs, 1):
         formatted_context += f"[Document {i}]\nTitle: {doc['metadata'].get('title', 'No title')}\n"
         formatted_context += f"Content: {doc['metadata'].get('text', 'No content')}\n\n"
-    # print(formatted_context)
     return formatted_context
 
 

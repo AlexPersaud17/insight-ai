@@ -6,6 +6,8 @@ from datetime import datetime
 import requests
 from bs4 import BeautifulSoup
 import pandas as pd
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
 
 
 def get_file_data():
@@ -35,7 +37,7 @@ def pdf_scraper():
             "unique_id": f"pdf-{title}-{time.time()}"
         })
     data = pd.DataFrame(raw_data)
-    return data
+    return data, title
 
 
 def url_scraper(url, lastmod=datetime.today().strftime('%Y-%m-%d'), raw_data=[]):
@@ -52,7 +54,7 @@ def url_scraper(url, lastmod=datetime.today().strftime('%Y-%m-%d'), raw_data=[])
             "unique_id": unique_id
         })
 
-    return raw_data
+    return raw_data, url
 
 
 # @st.cache_resource(show_spinner=False)
@@ -77,10 +79,33 @@ def help_center_scrape():
 
 
 def upload_new_data(model, index):
-    raw_data = get_file_data()
+    raw_data, file_uploaded = get_file_data()
     if st.button("Import"):
         st.write(f"Beginning import...")
         data = ib.create_chunk_df(raw_data, model)
         ib.upsert_embeddings(data, index)
 
         st.write(f"Import completed.")
+        upload_history(file_uploaded)
+
+
+def google_sheet_client_init():
+    scope = ["https://spreadsheets.google.com/feeds",
+             "https://www.googleapis.com/auth/drive"]
+    creds = ServiceAccountCredentials.from_json_keyfile_name(
+        "insight-ai-454822-d6a2bff7346b.json", scope)
+    client = gspread.authorize(creds)
+    sheet = client.open("insight-ai-upload-history").sheet1
+    return sheet
+
+
+def upload_history(file_uploaded):
+    sheet = google_sheet_client_init()
+    sheet.append_row([datetime.now().strftime(
+        "%Y-%m-%d %H:%M:%S"), st.experimental_user.name, file_uploaded])
+
+
+def print_upload_history():
+    sheet = google_sheet_client_init()
+    data = sheet.get_all_records()
+    st.table(data)
